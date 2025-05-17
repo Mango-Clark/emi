@@ -7,6 +7,18 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import dev.emi.emi.api.stack.SearchEmiIngredient;
+import dev.emi.emi.runtime.EmiBookmarks;
+import dev.emi.emi.runtime.EmiDrawContext;
+import dev.emi.emi.runtime.EmiFavorite;
+import dev.emi.emi.runtime.EmiFavorites;
+import dev.emi.emi.runtime.EmiHidden;
+import dev.emi.emi.runtime.EmiHistory;
+import dev.emi.emi.runtime.EmiLog;
+import dev.emi.emi.runtime.EmiProfiler;
+import dev.emi.emi.runtime.EmiReloadLog;
+import dev.emi.emi.runtime.EmiReloadManager;
+import dev.emi.emi.runtime.EmiSidebars;
 import net.minecraft.command.argument.ItemStackArgument;
 import net.minecraft.component.ComponentChanges;
 import org.jetbrains.annotations.Nullable;
@@ -56,16 +68,6 @@ import dev.emi.emi.registry.EmiExclusionAreas;
 import dev.emi.emi.registry.EmiRecipeFiller;
 import dev.emi.emi.registry.EmiRecipes;
 import dev.emi.emi.registry.EmiStackProviders;
-import dev.emi.emi.runtime.EmiDrawContext;
-import dev.emi.emi.runtime.EmiFavorite;
-import dev.emi.emi.runtime.EmiFavorites;
-import dev.emi.emi.runtime.EmiHidden;
-import dev.emi.emi.runtime.EmiHistory;
-import dev.emi.emi.runtime.EmiLog;
-import dev.emi.emi.runtime.EmiProfiler;
-import dev.emi.emi.runtime.EmiReloadLog;
-import dev.emi.emi.runtime.EmiReloadManager;
-import dev.emi.emi.runtime.EmiSidebars;
 import dev.emi.emi.screen.tooltip.RecipeTooltipComponent;
 import dev.emi.emi.screen.widget.EmiSearchWidget;
 import dev.emi.emi.screen.widget.SidebarButtonWidget;
@@ -81,7 +83,6 @@ import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.tooltip.TooltipComponent;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
@@ -1071,6 +1072,21 @@ public class EmiScreenManager {
 					}
 				} else {
 					EmiStackInteraction hovered = getHoveredStack((int) mouseX, (int) mouseY, !isClickClicky(button));
+
+					if (panel != null) {
+						ScreenSpace space = panel.getHoveredSpace(mx, my);
+						if (space != null && space.getType() == SidebarType.BOOKMARKS && pressedStack instanceof SearchEmiIngredient bookmark) {
+							if (button == 1) {
+								EmiBookmarks.removeBookmark(bookmark);
+							} else if (bookmark.getContent() != null) {
+								EmiApi.setSearchText(bookmark.getContent());
+								EmiPort.focus(search, true);
+							}
+
+							return true;
+						}
+					}
+
 					if (draggedStack.isEmpty() && stackInteraction(hovered, bind -> bind.matchesMouse(button))) {
 						return true;
 					}

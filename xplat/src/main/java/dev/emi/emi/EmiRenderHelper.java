@@ -39,6 +39,7 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.item.ItemConvertible;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Style;
@@ -98,7 +99,8 @@ public class EmiRenderHelper {
 		float g = ((color >> 8) & 255) / 256f;
 		float b = (color & 255) / 256f;
 		
-		BufferBuilder bufferBuilder = Tessellator.getInstance().begin(DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+		BufferBuilder bufferBuilder = Tessellator.getInstance().getBuffer();
+		bufferBuilder.begin(DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE);
 		float xMin = (float) x;
 		float yMin = (float) y;
 		float xMax = xMin + width;
@@ -110,10 +112,10 @@ public class EmiRenderHelper {
 		float uMax = sprite.getMaxU() - uSpan / 16 * (16 - (width + xOff));
 		float vMax = sprite.getMaxV() - vSpan / 16 * (16 - (height + yOff));
 		Matrix4f model = matrices.peek().getPositionMatrix();
-		bufferBuilder.vertex(model, xMin, yMax, 1).color(r, g, b, 1).texture(uMin, vMax);
-		bufferBuilder.vertex(model, xMax, yMax, 1).color(r, g, b, 1).texture(uMax, vMax);
-		bufferBuilder.vertex(model, xMax, yMin, 1).color(r, g, b, 1).texture(uMax, vMin);
-		bufferBuilder.vertex(model, xMin, yMin, 1).color(r, g, b, 1).texture(uMin, vMin);
+		bufferBuilder.vertex(model, xMin, yMax, 1).color(r, g, b, 1).texture(uMin, vMax).next();
+		bufferBuilder.vertex(model, xMax, yMax, 1).color(r, g, b, 1).texture(uMax, vMax).next();
+		bufferBuilder.vertex(model, xMax, yMin, 1).color(r, g, b, 1).texture(uMax, vMin).next();
+		bufferBuilder.vertex(model, xMin, yMin, 1).color(r, g, b, 1).texture(uMin, vMin).next();
 		EmiPort.draw(bufferBuilder);
 	}
 
@@ -223,28 +225,31 @@ public class EmiRenderHelper {
 		return getAmountText(stack, stack.getAmount());
 	}
 
-	public static Text getAmountText(EmiIngredient stack, long amount) {
-		if (stack.isEmpty() || amount == 0) {
-			return EMPTY_TEXT;
-		}
-		if (stack.getEmiStacks().get(0).getKey() instanceof Fluid) {
-			return getFluidAmount(amount);
-		}
-		return EmiPort.literal(TEXT_FORMAT.format(amount));
+	public static Text getAmountText(EmiIngredient stack, double amount) {
+		return getAmountText(stack, (double) amount, false);
 	}
 
-	public static Text getAmountText(EmiIngredient stack, double amount) {
+	public static Text getAmountText(EmiIngredient stack, double amount, boolean inStackFormat) {
 		if (stack.isEmpty() || amount == 0) {
 			return EMPTY_TEXT;
 		}
-		if (stack.getEmiStacks().get(0).getKey() instanceof Fluid) {
+
+		Object resource = stack.getEmiStacks().get(0).getKey();
+		if (resource instanceof ItemConvertible item && inStackFormat) {
+			int stackSize = item.asItem().getMaxCount();
+			long stackCount = (long) amount / stackSize;
+			double remainder = amount % stackSize;
+			MutableText text = EmiPort.literal(TEXT_FORMAT.format(stackCount) + "▤");
+			if (remainder > 0) {
+				text = EmiPort.append(text, EmiPort.literal(" +" + TEXT_FORMAT.format(remainder)));
+			}
+			return text;
+		}
+
+		if (resource instanceof Fluid) {
 			return EmiConfig.fluidUnit.translate(amount);
 		}
 		return EmiPort.literal(TEXT_FORMAT.format(amount));
-	}
-
-	public static Text getFluidAmount(long amount) {
-		return EmiConfig.fluidUnit.translate(amount);
 	}
 
 	public static int getAmountOverflow(Text amount) {
@@ -357,7 +362,7 @@ public class EmiRenderHelper {
 			context.matrices().translate(x + 4, y + 4, 0);
 
 			recipe.addWidgets(holder);
-			float delta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false);
+			float delta = MinecraftClient.getInstance().getTickDelta();
 			for (Widget widget : widgets) {
 				widget.render(context.raw(), -1000, -1000, delta);
 			}

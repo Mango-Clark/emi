@@ -1,5 +1,10 @@
 package dev.emi.emi.jemi;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.jetbrains.annotations.Nullable;
+
 import com.google.common.collect.Lists;
 
 import dev.emi.emi.EmiPort;
@@ -22,19 +27,14 @@ import dev.emi.emi.runtime.EmiDrawContext;
 import dev.emi.emi.screen.EmiScreenManager;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.drawable.IDrawable;
-import mezz.jei.api.gui.inputs.IJeiUserInput;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.library.focus.FocusGroup;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.tooltip.TooltipComponent;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.recipe.Recipe;
 import net.minecraft.util.Identifier;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
-import java.util.Optional;
 
 public class JemiRecipe<T> implements EmiRecipe {
 	public List<EmiIngredient> inputs = Lists.newArrayList();
@@ -80,7 +80,7 @@ public class JemiRecipe<T> implements EmiRecipe {
 	}
 
 	@Override
-	public @Nullable RecipeEntry<?> getBackingRecipe() {
+	public @Nullable Recipe<?> getBackingRecipe() {
 		return EmiPort.getRecipe(originalId);
 	}
 

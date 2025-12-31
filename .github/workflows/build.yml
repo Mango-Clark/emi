@@ -5,7 +5,7 @@ jobs:
   build:
     strategy:
       matrix:
-        java: [ 21 ]
+        java: [ 17 ]
     runs-on: ubuntu-latest
     steps:
 
@@ -29,11 +29,8 @@ jobs:
       - name: Build Fabric
         run: ./gradlew :fabric:build
 
-      - name: Build NeoForge
-        run: ./gradlew :neoforge:build
-
-#      - name: Build Forge
-#        run: ./gradlew :forge:build
+      - name: Build Forge
+        run: ./gradlew :forge:build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4.4.0
@@ -41,5 +38,4 @@ jobs:
           name: Artifacts
           path: |
             fabric/build/libs/
-            neoforge/build/libs/
-#           forge/build/libs/
+            forge/build/libs/

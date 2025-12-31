@@ -7,11 +7,6 @@ import java.util.Random;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BannerPatternsComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.registry.RegistryKeys;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 
@@ -36,9 +31,10 @@ import net.minecraft.enchantment.Enchantment;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.potion.Potion;
+import net.minecraft.potion.PotionUtil;
 import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.RecipeManager;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -107,18 +103,22 @@ public final class EmiPort {
 		}
 	}
 
-	public static BannerPatternsComponent addRandomBanner(BannerPatternsComponent patterns, Random random) {
-		var bannerRegistry = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BANNER_PATTERN);
-		return new BannerPatternsComponent.Builder().addAll(patterns).add(bannerRegistry.getEntry(random.nextInt(bannerRegistry.size())).get(),
-			DyeColor.values()[random.nextInt(DyeColor.values().length)]).build();
+	public static BannerPattern.Patterns addRandomBanner(BannerPattern.Patterns patterns, Random random) {
+		return patterns.add(Registries.BANNER_PATTERN.getEntry(random.nextInt(Registries.BANNER_PATTERN.size())).get(),
+			DyeColor.values()[random.nextInt(DyeColor.values().length)]);
 	}
 
 	public static boolean canTallFlowerDuplicate(TallFlowerBlock tallFlowerBlock) {
 		try {
-			return tallFlowerBlock.isFertilizable(null, null, null) && tallFlowerBlock.canGrow(null, null, null, null);
+			return tallFlowerBlock.isFertilizable(null, null, null, true) && tallFlowerBlock.canGrow(null, null, null, null);
 		} catch(Exception e) {
 			return false;
 		}
+	}
+
+	public static void upload(VertexBuffer vb, BufferBuilder bldr) {
+		vb.bind();
+		vb.upload(bldr.end());
 	}
 
 	public static void setShader(VertexBuffer buf, Matrix4f mat) {
@@ -143,7 +143,7 @@ public final class EmiPort {
 	}
 
 	public static void setPositionColorTexShader() {
-		RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+		RenderSystem.setShader(GameRenderer::getPositionColorTexProgram);
 	}
 
 	public static Registry<Item> getItemRegistry() {
@@ -163,8 +163,7 @@ public final class EmiPort {
 	}
 
 	public static Registry<Enchantment> getEnchantmentRegistry() {
-		MinecraftClient client = MinecraftClient.getInstance();
-		return client.world.getRegistryManager().get(RegistryKeys.ENCHANTMENT);
+		return Registries.ENCHANTMENT;
 	}
 
 	public static ButtonWidget newButton(int x, int y, int w, int h, Text name, PressAction action) {
@@ -173,18 +172,10 @@ public final class EmiPort {
 
 	public static ItemStack getOutput(Recipe<?> recipe) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		return recipe.getResult(client.world.getRegistryManager());
+		return recipe.getOutput(client.world.getRegistryManager());
 	}
 
 	public static void focus(TextFieldWidget widget, boolean focused) {
-		// Also ensure a current focus-element in the screen is cleared if it changes
-		MinecraftClient client = MinecraftClient.getInstance();
-		if (client != null && client.currentScreen != null) {
-			var currentFocus = client.currentScreen.getFocused();
-			if (!focused && currentFocus == widget || focused && currentFocus != widget) {
-				client.currentScreen.setFocused(null);
-			}
-		}
 		widget.setFocused(focused);
 	}
 
@@ -195,10 +186,10 @@ public final class EmiPort {
 	}
 
 	public static Identifier getId(Recipe<?> recipe) {
-		return EmiRecipes.recipeIds.get(recipe);
+		return recipe.getId();
 	}
 
-	public static @Nullable RecipeEntry<?> getRecipe(Identifier id) {
+	public static @Nullable Recipe<?> getRecipe(Identifier id) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (client.world != null && id != null) {
 			RecipeManager manager = client.world.getRecipeManager();
@@ -210,24 +201,23 @@ public final class EmiPort {
 	}
 
 	public static Comparison compareStrict() {
-		return Comparison.compareComponents();
+		return Comparison.compareNbt();
 	}
 
 	public static ItemStack setPotion(ItemStack stack, Potion potion) {
-		stack.apply(DataComponentTypes.POTION_CONTENTS, PotionContentsComponent.DEFAULT, getPotionRegistry().getEntry(potion), PotionContentsComponent::with);
-		return stack;
+		return PotionUtil.setPotion(stack, potion);
 	}
 
-	public static ComponentChanges emptyExtraData() {
-		return ComponentChanges.EMPTY;
+	public static NbtCompound emptyExtraData() {
+		return null;
 	}
 
 	public static Identifier id(String id) {
-		return Identifier.of(id);
+		return new Identifier(id);
 	}
 
 	public static Identifier id(String namespace, String path) {
-		return Identifier.of(namespace, path);
+		return new Identifier(namespace, path);
 	}
 
 	public static void applyModelViewMatrix() {

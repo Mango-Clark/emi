@@ -1,6 +1,5 @@
 package dev.emi.emi.api.stack.serializer;
 
-import com.mojang.serialization.DynamicOps;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -12,9 +11,7 @@ import dev.emi.emi.EmiPort;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.runtime.EmiLog;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.JsonHelper;
@@ -22,17 +19,7 @@ import net.minecraft.util.JsonHelper;
 public interface EmiStackSerializer<T extends EmiStack> extends EmiIngredientSerializer<T> {
 	static final Pattern STACK_REGEX = Pattern.compile("^([\\w_\\-./]+):([\\w_\\-.]+):([\\w_\\-./]+)(\\{.*\\})?$");
 	
-	EmiStack create(Identifier id, ComponentChanges componentChanges, long amount);
-
-	private static <T> DynamicOps<T> withRegistryAccess(DynamicOps<T> ops) {
-		MinecraftClient instance = MinecraftClient.getInstance();
-		if (instance == null || instance.world == null) {
-			//Note: instance can be null in datagen, just fall back to a variant that doesn't have registry access
-			// as in the majority of cases this will work fine
-			return ops;
-		}
-		return instance.world.getRegistryManager().getOps(ops);
-	}
+	EmiStack create(Identifier id, NbtCompound nbt, long amount);
 
 	@Override
 	default EmiIngredient deserialize(JsonElement element) {
@@ -63,11 +50,11 @@ public interface EmiStackSerializer<T extends EmiStack> extends EmiIngredientSer
 		}
 		if (id != null) {
 			try {
-				ComponentChanges changes = ComponentChanges.EMPTY;
+				NbtCompound nbtComp = null;
 				if (nbt != null) {
-					changes = ComponentChanges.CODEC.decode(withRegistryAccess(NbtOps.INSTANCE), StringNbtReader.parse(nbt)).getOrThrow().getFirst();
+					nbtComp = StringNbtReader.parse(nbt);
 				}
-				EmiStack stack = create(id, changes, amount);
+				EmiStack stack = create(id, nbtComp, amount);
 				if (chance != 1) {
 					stack.setChance(chance);
 				}
@@ -85,23 +72,18 @@ public interface EmiStackSerializer<T extends EmiStack> extends EmiIngredientSer
 
 	@Override
 	default JsonElement serialize(T stack) {
-		String nbt = null;
-		ComponentChanges componentChanges = stack.getComponentChanges();
-		if (componentChanges != ComponentChanges.EMPTY) {
-			nbt = ComponentChanges.CODEC.encodeStart(withRegistryAccess(NbtOps.INSTANCE), componentChanges).getOrThrow().asString();
-		}
 		if (stack.getAmount() == 1 && stack.getChance() == 1 && stack.getRemainder().isEmpty()) {
 			String s = getType() + ":" + stack.getId();
-			if (nbt != null) {
-				s += nbt;
+			if (stack.hasNbt()) {
+				s += stack.getNbt().asString();
 			}
 			return new JsonPrimitive(s);
 		} else {
 			JsonObject json = new JsonObject();
 			json.addProperty("type", getType());
 			json.addProperty("id", stack.getId().toString());
-			if (nbt != null) {
-				json.addProperty("nbt", nbt);
+			if (stack.hasNbt()) {
+				json.addProperty("nbt", stack.getNbt().asString());
 			}
 			if (stack.getAmount() != 1) {
 				json.addProperty("amount", stack.getAmount());

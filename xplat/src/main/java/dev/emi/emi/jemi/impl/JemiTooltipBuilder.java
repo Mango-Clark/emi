@@ -5,11 +5,10 @@ import java.util.List;
 
 import com.google.common.collect.Lists;
 
-import dev.emi.emi.runtime.EmiLog;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.client.gui.tooltip.TooltipComponent;
-import net.minecraft.item.tooltip.TooltipData;
+import net.minecraft.client.item.TooltipData;
 import net.minecraft.text.StringVisitable;
 import net.minecraft.text.Text;
 
@@ -38,18 +37,13 @@ public class JemiTooltipBuilder implements ITooltipBuilder {
 		try {
 			tooltip.add(TooltipComponent.of(data));
 		} catch (Exception e) {
-			EmiLog.error("Error converting TooltipComponent", e);
+			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public void setIngredient(ITypedIngredient<?> typedIngredient) {
 		// EMI's methods bypass the vanilla tooltip render which accepts a stack, so this will do nothing
-	}
-
-	@Override
-	public void clear() {
-		// EMI does not support tooltip removeal, this will only clear the user's additions
 	}
 
 	@Override

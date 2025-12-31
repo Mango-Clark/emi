@@ -17,14 +17,15 @@ import dev.emi.emi.config.FluidUnit;
 import dev.emi.emi.jemi.JemiStack;
 import dev.emi.emi.jemi.JemiUtil;
 import dev.emi.emi.jemi.impl.JemiRecipeSlot.IngredientRenderer;
+import dev.emi.emi.runtime.EmiLog;
 import mezz.jei.api.gui.builder.IIngredientAcceptor;
 import mezz.jei.api.gui.ingredient.IRecipeSlotTooltipCallback;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-import net.minecraft.component.ComponentChanges;
+import net.minecraft.client.item.TooltipContext;
 import net.minecraft.fluid.Fluid;
-import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
 
 public class JemiIngredientAcceptor implements IIngredientAcceptor<JemiIngredientAcceptor> {
@@ -46,7 +47,7 @@ public class JemiIngredientAcceptor implements IIngredientAcceptor<JemiIngredien
 			if (typed != null && (stack instanceof JemiStack || stack.getKey() instanceof Fluid)) {
 				List<Text> base = Lists.newArrayList();
 				if (renderers != null && renderers.containsKey(typed.getType())) {
-					base.addAll(((IngredientRenderer) renderers.get(typed.getType())).renderer().getTooltip(typed.getIngredient(), TooltipType.BASIC));
+					base.addAll(((IngredientRenderer) renderers.get(typed.getType())).renderer().getTooltip(typed.getIngredient(), TooltipContext.Default.BASIC));
 				}
 				if (base == null || base.isEmpty()) {
 					if (tooltipCallback == null) {
@@ -109,7 +110,8 @@ public class JemiIngredientAcceptor implements IIngredientAcceptor<JemiIngredien
 
 	@Override
 	public JemiIngredientAcceptor addFluidStack(Fluid fluid) {
-		return addFluidStack(fluid, FluidUnit.BUCKET);
+		addStack(EmiStack.of(fluid));
+		return this;
 	}
 
 	@Override
@@ -117,10 +119,10 @@ public class JemiIngredientAcceptor implements IIngredientAcceptor<JemiIngredien
 		addStack(EmiStack.of(fluid, amount));
 		return this;
 	}
-	
+
 	@Override
-	public JemiIngredientAcceptor addFluidStack(Fluid fluid, long amount, ComponentChanges componentChanges) {
-		addStack(EmiStack.of(fluid, componentChanges, amount));
+	public JemiIngredientAcceptor addFluidStack(Fluid fluid, long amount, NbtCompound tag) {
+		addStack(EmiStack.of(fluid, tag, amount));
 		return this;
 	}
 

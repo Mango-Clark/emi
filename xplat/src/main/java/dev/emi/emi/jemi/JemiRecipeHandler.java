@@ -32,7 +32,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.RecipeManager;
 import net.minecraft.screen.ScreenHandler;
 
@@ -214,9 +213,9 @@ public class JemiRecipeHandler<T extends ScreenHandler, R> implements EmiRecipeH
 					}
 				}
 				if (manager != null) {
-					Optional<? extends RecipeEntry<?>> opt = manager.get(recipe.getId());
+					Optional<? extends Recipe<?>> opt = manager.get(recipe.getId());
 					if (opt.isPresent()) {
-						RecipeEntry<?> r = opt.get();
+						Recipe<?> r = opt.get();
 						if (type.getRecipeClass().isAssignableFrom(r.getClass())) {
 							return type.getRecipeClass().cast(r);
 						}
@@ -224,7 +223,7 @@ public class JemiRecipeHandler<T extends ScreenHandler, R> implements EmiRecipeH
 				}
 			}
 			if (manager != null) {
-				Optional<? extends RecipeEntry<?>> opt = manager.get(recipe.getId());
+				Optional<? extends Recipe<?>> opt = manager.get(recipe.getId());
 				if (opt.isPresent()) {
 					return (R) opt.get();
 				}

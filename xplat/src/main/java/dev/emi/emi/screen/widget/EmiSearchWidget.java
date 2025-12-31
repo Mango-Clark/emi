@@ -4,7 +4,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.joml.Matrix4fStack;
+import dev.emi.emi.api.EmiApi;
+import dev.emi.emi.api.stack.EmiIngredient;
+import dev.emi.emi.runtime.EmiBookmarks;
+import dev.emi.emi.screen.EmiScreenManager.SidebarPanel;
+import net.minecraft.client.util.math.MatrixStack;
 import org.lwjgl.glfw.GLFW;
 
 import com.google.common.collect.Lists;
@@ -20,7 +24,6 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.resource.language.I18n;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.util.Formatting;
@@ -175,12 +178,12 @@ public class EmiSearchWidget extends TextFieldWidget {
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		if (!isMouseOver(mouseX, mouseY) || !EmiConfig.enabled) {
-			EmiPort.focus(this, false);
+			setFocused(false);
 			return false;
 		} else {
 			boolean b = super.mouseClicked(mouseX, mouseY, button == 1 ? 0 : button);
 			if (isMouseOver(mouseX, mouseY)) {
-				EmiPort.focus(this, true);
+				setFocused(true);
 			}
 			if (this.isFocused()) {
 				if (button == 0) {
@@ -192,7 +195,7 @@ public class EmiSearchWidget extends TextFieldWidget {
 					}
 				} else if (button == 1) {
 					this.setText("");
-					EmiPort.focus(this, true);
+					this.setFocused(true);
 				}
 			}
 			return b;
@@ -206,9 +209,27 @@ public class EmiSearchWidget extends TextFieldWidget {
 				setText("");
 				return true;
 			}
+			if (EmiConfig.addBookmark.matchesKey(keyCode, scanCode)) {
+				String search = EmiApi.getSearchText();
+				if (!search.isEmpty()) {
+					SidebarPanel panel = EmiScreenManager.getSearchPanel();
+
+					if (panel != null) {
+						List<? extends EmiIngredient> list = panel.space.getStacks();
+
+						// Limit to at most 8 items for the bookmark
+						list = list.subList(0, Math.min(list.size(), 8));
+
+						if (!list.isEmpty()) {
+							EmiBookmarks.addBookmark(search, list);
+						}
+					}
+				}
+			}
 			if ((EmiConfig.focusSearch.matchesKey(keyCode, scanCode)
 					|| keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_ESCAPE)) {
-				EmiPort.focus(this, false);
+				this.setFocused(false);
+				this.setFocused(false);
 				return true;
 			}
 			if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN) {
@@ -226,7 +247,7 @@ public class EmiSearchWidget extends TextFieldWidget {
 	}
 
 	@Override
-	public void renderWidget(DrawContext raw, int mouseX, int mouseY, float delta) {
+	public void render(DrawContext raw, int mouseX, int mouseY, float delta) {
 		EmiDrawContext context = EmiDrawContext.wrap(raw);
 		this.setEditable(EmiConfig.enabled);
 		String lower = getText().toLowerCase();
@@ -240,11 +261,11 @@ public class EmiSearchWidget extends TextFieldWidget {
 		}
 		lastRender = System.currentTimeMillis();
 		long deg = accumulatedSpin * -180 / 500;
-		Matrix4fStack view = RenderSystem.getModelViewStack();
-		view.pushMatrix();
+		MatrixStack view = RenderSystem.getModelViewStack();
+		view.push();
 		if (deg != 0) {
 			view.translate(this.x + this.width / 2, this.y + this.height / 2, 0);
-			view.rotate(RotationAxis.NEGATIVE_Z.rotationDegrees(deg));
+			view.multiply(RotationAxis.NEGATIVE_Z.rotationDegrees(deg));
 			view.translate(-(this.x + this.width / 2), -(this.y + this.height / 2), 0);
 			EmiPort.applyModelViewMatrix();
 		}
@@ -257,7 +278,7 @@ public class EmiSearchWidget extends TextFieldWidget {
 		}
 
 		if (EmiConfig.enabled) {
-			super.renderWidget(context.raw(), mouseX, mouseY, delta);
+			super.render(context.raw(), mouseX, mouseY, delta);
 			if (highlight) {
 				int border = 0xffeeee00;
 				context.fill(this.x - 1, this.y - 1, this.width + 2, 1, border);
@@ -267,7 +288,7 @@ public class EmiSearchWidget extends TextFieldWidget {
 			}
 		}
 		context.resetColor();
-		view.popMatrix();
+		view.pop();
 		EmiPort.applyModelViewMatrix();
 	}
 }

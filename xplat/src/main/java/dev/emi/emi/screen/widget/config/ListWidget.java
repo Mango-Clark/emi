@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.common.collect.Lists;
@@ -25,7 +24,6 @@ import net.minecraft.client.gui.screen.narration.NarrationPart;
 import net.minecraft.client.gui.tooltip.TooltipComponent;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
@@ -38,9 +36,6 @@ import net.minecraft.util.math.MathHelper;
  * This is the lesser of two evils, at least this way I have vanilla compat.
  */
 public class ListWidget extends AbstractParentElement implements Drawable, Selectable {
-	private static final Identifier MENU_LIST_BACKGROUND_TEXTURE = EmiPort.id("minecraft", "textures/gui/menu_list_background.png");
-	private static final Identifier INWORLD_MENU_LIST_BACKGROUND_TEXTURE = EmiPort.id("minecraft", "textures/gui/inworld_menu_list_background.png");
-
 	protected final MinecraftClient client;
 	private final List<Entry> children = Lists.newArrayList();
 	protected int width;
@@ -164,31 +159,80 @@ public class ListWidget extends AbstractParentElement implements Drawable, Selec
 		int i = this.getScrollbarPositionX();
 		int j = i + 6;
 		Tessellator tessellator = Tessellator.getInstance();
-		BufferBuilder bufferBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+		BufferBuilder bufferBuilder = tessellator.getBuffer();
 		RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
 		this.hoveredEntry = this.isMouseOver(mouseX, mouseY) ? this.getEntryAtPosition(mouseX, mouseY) : null;
 
 		{	// Render background
-			RenderSystem.enableBlend();
-			Identifier identifier = this.client.world == null ? MENU_LIST_BACKGROUND_TEXTURE : INWORLD_MENU_LIST_BACKGROUND_TEXTURE;
-			draw.drawTexture(identifier, left, top, right, bottom + (int)scrollAmount, right - left, bottom - top, 32, 32);
-			RenderSystem.disableBlend();
+			RenderSystem.setShaderTexture(0, Screen.OPTIONS_BACKGROUND_TEXTURE);
+			RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+			bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+			bufferBuilder.vertex((double)this.left, (double)this.bottom, 0.0)
+				.texture((float)this.left / 32.0F, (float)(this.bottom + (int)this.getScrollAmount()) / 32.0F)
+				.color(32, 32, 32, 255)
+				.next();
+			bufferBuilder.vertex((double)this.right, (double)this.bottom, 0.0)
+				.texture((float)this.right / 32.0F, (float)(this.bottom + (int)this.getScrollAmount()) / 32.0F)
+				.color(32, 32, 32, 255)
+				.next();
+			bufferBuilder.vertex((double)this.right, (double)this.top, 0.0)
+				.texture((float)this.right / 32.0F, (float)(this.top + (int)this.getScrollAmount()) / 32.0F)
+				.color(32, 32, 32, 255)
+				.next();
+			bufferBuilder.vertex((double)this.left, (double)this.top, 0.0)
+				.texture((float)this.left / 32.0F, (float)(this.top + (int)this.getScrollAmount()) / 32.0F)
+				.color(32, 32, 32, 255)
+				.next();
+			tessellator.draw();
 		}
-
-		draw.enableScissor(left, top, right, bottom);
+		
 		int k = this.getRowLeft();
 		int l = this.top + 4 - (int)this.getScrollAmount();
 		this.renderList(draw, k, l, mouseX, mouseY, delta);
-		draw.disableScissor();
 
 
-		{	// Render header & footer separators
+		{	// Render horizontal shadows
+			RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+			RenderSystem.setShaderTexture(0, Screen.OPTIONS_BACKGROUND_TEXTURE);
+			RenderSystem.enableDepthTest();
+			RenderSystem.depthFunc(519);
+			bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+			bufferBuilder.vertex((double)this.left, (double)this.top, -100.0).texture(0.0F, (float)this.top / 32.0F).color(64, 64, 64, 255).next();
+			bufferBuilder.vertex((double)(this.left + this.width), (double)this.top, -100.0)
+				.texture((float)this.width / 32.0F, (float)this.top / 32.0F)
+				.color(64, 64, 64, 255)
+				.next();
+			bufferBuilder.vertex((double)(this.left + this.width), 0.0, -100.0).texture((float)this.width / 32.0F, 0.0F).color(64, 64, 64, 255).next();
+			bufferBuilder.vertex((double)this.left, 0.0, -100.0).texture(0.0F, 0.0F).color(64, 64, 64, 255).next();
+			bufferBuilder.vertex((double)this.left, (double)this.height, -100.0).texture(0.0F, (float)this.height / 32.0F).color(64, 64, 64, 255).next();
+			bufferBuilder.vertex((double)(this.left + this.width), (double)this.height, -100.0)
+				.texture((float)this.width / 32.0F, (float)this.height / 32.0F)
+				.color(64, 64, 64, 255)
+				.next();
+			bufferBuilder.vertex((double)(this.left + this.width), (double)this.bottom, -100.0)
+				.texture((float)this.width / 32.0F, (float)this.bottom / 32.0F)
+				.color(64, 64, 64, 255)
+				.next();
+			bufferBuilder.vertex((double)this.left, (double)this.bottom, -100.0).texture(0.0F, (float)this.bottom / 32.0F).color(64, 64, 64, 255).next();
+			tessellator.draw();
+			RenderSystem.depthFunc(515);
+			RenderSystem.disableDepthTest();
 			RenderSystem.enableBlend();
-			Identifier identifier = this.client.world == null ? Screen.HEADER_SEPARATOR_TEXTURE : Screen.INWORLD_HEADER_SEPARATOR_TEXTURE;
-			Identifier identifier2 = this.client.world == null ? Screen.FOOTER_SEPARATOR_TEXTURE : Screen.INWORLD_FOOTER_SEPARATOR_TEXTURE;
-			draw.drawTexture(identifier, left, top - 2, 0.0F, 0.0F, width, 2, 32, 2);
-			draw.drawTexture(identifier2, left, bottom, 0.0F, 0.0F, width, 2, 32, 2);
-			RenderSystem.disableBlend();
+			RenderSystem.blendFuncSeparate(
+				GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ZERO, GlStateManager.DstFactor.ONE
+			);
+			RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+			n = 4;
+			bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+			bufferBuilder.vertex((double)this.left, (double)(this.top + 4), 0.0).color(0, 0, 0, 0).next();
+			bufferBuilder.vertex((double)this.right, (double)(this.top + 4), 0.0).color(0, 0, 0, 0).next();
+			bufferBuilder.vertex((double)this.right, (double)this.top, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex((double)this.left, (double)this.top, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex((double)this.left, (double)this.bottom, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex((double)this.right, (double)this.bottom, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex((double)this.right, (double)(this.bottom - 4), 0.0).color(0, 0, 0, 0).next();
+			bufferBuilder.vertex((double)this.left, (double)(this.bottom - 4), 0.0).color(0, 0, 0, 0).next();
+			tessellator.draw();
 		}
 
 		if ((o = this.getMaxScroll()) > 0) {
@@ -199,20 +243,20 @@ public class ListWidget extends AbstractParentElement implements Drawable, Selec
 			if (n < this.top) {
 				n = this.top;
 			}
-			bufferBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-			bufferBuilder.vertex(i, this.bottom, 0).color(0, 0, 0, 255);
-			bufferBuilder.vertex(j, this.bottom, 0).color(0, 0, 0, 255);
-			bufferBuilder.vertex(j, this.top, 0).color(0, 0, 0, 255);
-			bufferBuilder.vertex(i, this.top, 0).color(0, 0, 0, 255);
-			bufferBuilder.vertex(i, n + m, 0).color(128, 128, 128, 255);
-			bufferBuilder.vertex(j, n + m, 0).color(128, 128, 128, 255);
-			bufferBuilder.vertex(j, n, 0).color(128, 128, 128, 255);
-			bufferBuilder.vertex(i, n, 0).color(128, 128, 128, 255);
-			bufferBuilder.vertex(i, n + m - 1, 0).color(192, 192, 192, 255);
-			bufferBuilder.vertex(j - 1, n + m - 1, 0).color(192, 192, 192, 255);
-			bufferBuilder.vertex(j - 1, n, 0).color(192, 192, 192, 255);
-			bufferBuilder.vertex(i, n, 0).color(192, 192, 192, 255);
-			BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
+			bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+			bufferBuilder.vertex(i, this.bottom, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex(j, this.bottom, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex(j, this.top, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex(i, this.top, 0.0).color(0, 0, 0, 255).next();
+			bufferBuilder.vertex(i, n + m, 0.0).color(128, 128, 128, 255).next();
+			bufferBuilder.vertex(j, n + m, 0.0).color(128, 128, 128, 255).next();
+			bufferBuilder.vertex(j, n, 0.0).color(128, 128, 128, 255).next();
+			bufferBuilder.vertex(i, n, 0.0).color(128, 128, 128, 255).next();
+			bufferBuilder.vertex(i, n + m - 1, 0.0).color(192, 192, 192, 255).next();
+			bufferBuilder.vertex(j - 1, n + m - 1, 0.0).color(192, 192, 192, 255).next();
+			bufferBuilder.vertex(j - 1, n, 0.0).color(192, 192, 192, 255).next();
+			bufferBuilder.vertex(i, n, 0.0).color(192, 192, 192, 255).next();
+			tessellator.draw();
 		}
 		RenderSystem.disableBlend();
 	}
@@ -344,7 +388,7 @@ public class ListWidget extends AbstractParentElement implements Drawable, Selec
 	}
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double amount) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
 		this.setScrollAmount(this.getScrollAmount() - amount * 22);
 		return true;
 	}
@@ -408,7 +452,7 @@ public class ListWidget extends AbstractParentElement implements Drawable, Selec
 	protected void renderList(DrawContext draw, int x, int y, int mouseX, int mouseY, float delta) {
 		int i = this.getEntryCount();
 		Tessellator tessellator = Tessellator.getInstance();
-		BufferBuilder bufferBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
+		BufferBuilder bufferBuilder = tessellator.getBuffer();
 		for (int j = 0; j < i; ++j) {
 			int p;
 			int k = this.getRowTop(j);
@@ -428,18 +472,19 @@ public class ListWidget extends AbstractParentElement implements Drawable, Selec
 				RenderSystem.setShader(GameRenderer::getPositionProgram);
 				float f = this.isFocused() ? 1.0f : 0.5f;
 				RenderSystem.setShaderColor(f, f, f, 1.0f);
-				bufferBuilder.vertex(p, m + n + 2, 0);
-				bufferBuilder.vertex(q, m + n + 2, 0);
-				bufferBuilder.vertex(q, m - 2, 0);
-				bufferBuilder.vertex(p, m - 2, 0);
-				BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
+				bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
+				bufferBuilder.vertex(p, m + n + 2, 0.0).next();
+				bufferBuilder.vertex(q, m + n + 2, 0.0).next();
+				bufferBuilder.vertex(q, m - 2, 0.0).next();
+				bufferBuilder.vertex(p, m - 2, 0.0).next();
+				tessellator.draw();
 				RenderSystem.setShaderColor(0.0f, 0.0f, 0.0f, 1.0f);
-				bufferBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
-				bufferBuilder.vertex(p + 1, m + n + 1, 0);
-				bufferBuilder.vertex(q - 1, m + n + 1, 0);
-				bufferBuilder.vertex(q - 1, m - 1, 0);
-				bufferBuilder.vertex(p + 1, m - 1, 0);
-				BufferRenderer.drawWithGlobalProgram(bufferBuilder.end());
+				bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
+				bufferBuilder.vertex(p + 1, m + n + 1, 0.0).next();
+				bufferBuilder.vertex(q - 1, m + n + 1, 0.0).next();
+				bufferBuilder.vertex(q - 1, m - 1, 0.0).next();
+				bufferBuilder.vertex(p + 1, m - 1, 0.0).next();
+				tessellator.draw();
 			}
 			p = this.getRowLeft();
 			((Entry)entry).render(draw, j, k, p, o - 3, n, mouseX, mouseY, Objects.equals(this.hoveredEntry, entry), delta);

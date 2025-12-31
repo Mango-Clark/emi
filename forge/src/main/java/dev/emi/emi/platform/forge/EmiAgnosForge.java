@@ -59,6 +59,7 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.loading.FMLLoader;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.forgespi.language.ModFileScanData;
+import org.apache.commons.lang3.text.WordUtils;
 
 public class EmiAgnosForge extends EmiAgnos {
 	static {
@@ -105,6 +106,25 @@ public class EmiAgnosForge extends EmiAgnos {
 	@Override
 	protected List<String> getAllModNamesAgnos() {
 		return ModList.get().getMods().stream().map(m -> m.getDisplayName()).toList();
+	}
+
+	@Override
+	protected List<String> getModsWithPluginsAgnos() {
+		List<String> mods = Lists.newArrayList();
+		Type entrypointType = Type.getType(EmiEntrypoint.class);
+		for (ModFileScanData data : ModList.get().getAllScanData()) {
+			for (ModFileScanData.AnnotationData annot : data.getAnnotations()) {
+				try {
+					if (entrypointType.equals(annot.annotationType())) {
+						mods.add(data.getIModInfoData().get(0).getMods().get(0).getModId());
+					}
+				} catch (Throwable t) {
+					EmiLog.error("Exception constructing entrypoint:");
+					t.printStackTrace();
+				}
+			}
+		}
+		return mods;
 	}
 
 	@Override

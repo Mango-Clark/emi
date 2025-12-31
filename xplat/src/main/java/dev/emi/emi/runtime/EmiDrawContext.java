@@ -1,5 +1,7 @@
 package dev.emi.emi.runtime;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import dev.emi.emi.EmiPort;
 import dev.emi.emi.api.stack.EmiIngredient;
 import net.minecraft.client.MinecraftClient;
@@ -108,15 +110,15 @@ public class EmiDrawContext {
 	}
 
 	public void setColor(float r, float g, float b, float a) {
-		raw().setShaderColor(r, g, b, a);
+		RenderSystem.setShaderColor(r, g, b, a);
 	}
 
 	public void drawStack(EmiIngredient stack, int x, int y) {
-		stack.render(raw(), x, y, client.getRenderTickCounter().getTickDelta(false));
+		stack.render(raw(), x, y, client.getTickDelta());
 	}
 
 	public void drawStack(EmiIngredient stack, int x, int y, int flags) {
-		drawStack(stack, x, y, client.getRenderTickCounter().getTickDelta(false), flags);
+		drawStack(stack, x, y, client.getTickDelta(), flags);
 	}
 
 	public void drawStack(EmiIngredient stack, int x, int y, float delta, int flags) {

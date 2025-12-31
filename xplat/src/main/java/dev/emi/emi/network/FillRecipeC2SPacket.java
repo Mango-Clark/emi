@@ -3,8 +3,6 @@ package dev.emi.emi.network;
 import java.util.List;
 import java.util.function.Consumer;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.registry.entry.RegistryEntry;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.common.collect.Lists;
@@ -34,7 +32,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 		this.stacks = stacks;
 	}
 
-	public FillRecipeC2SPacket(RegistryByteBuf buf) {
+	public FillRecipeC2SPacket(PacketByteBuf buf) {
 		syncId = buf.readInt();
 		action = buf.readByte();
 		slots = parseCompressedSlots(buf);
@@ -52,12 +50,12 @@ public class FillRecipeC2SPacket implements EmiPacket {
 		int size = buf.readVarInt();
 		stacks = Lists.newArrayList();
 		for (int i = 0; i < size; i++) {
-			stacks.add(ItemStack.OPTIONAL_PACKET_CODEC.decode(buf));
+			stacks.add(buf.readItemStack());
 		}
 	}
 
 	@Override
-	public void write(RegistryByteBuf buf) {
+	public void write(PacketByteBuf buf) {
 		buf.writeInt(syncId);
 		buf.writeByte(action);
 		writeCompressedSlots(slots, buf);
@@ -73,7 +71,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 		}
 		buf.writeVarInt(stacks.size());
 		for (ItemStack stack : stacks) {
-			ItemStack.OPTIONAL_PACKET_CODEC.encode(buf, stack);
+			buf.writeItemStack(stack);
 		}
 	}
 
@@ -205,7 +203,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 				return grabbed;
 			}
 			ItemStack r = rubble.get(i);
-			if (ItemStack.areItemsAndComponentsEqual(stack, r)) {
+			if (ItemStack.canCombine(stack, r)) {
 				int wanted = amount - grabbed;
 				if (r.getCount() <= wanted) {
 					grabbed += r.getCount();
@@ -225,7 +223,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 				continue;
 			}
 			ItemStack st = s.getStack();
-			if (ItemStack.areItemsAndComponentsEqual(stack, st)) {
+			if (ItemStack.canCombine(stack, st)) {
 				int wanted = amount - grabbed;
 				ItemStack taken = st.copy();
 				if (st.getCount() <= wanted) {
@@ -242,7 +240,7 @@ public class FillRecipeC2SPacket implements EmiPacket {
 	}
 
 	@Override
-	public Id<FillRecipeC2SPacket> getId() {
+	public Identifier getId() {
 		return EmiNetwork.FILL_RECIPE;
 	}
 }

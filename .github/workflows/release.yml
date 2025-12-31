@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        java: [ 21 ]
+        java: [ 17 ]
     runs-on: ubuntu-latest
     steps:
 
@@ -44,15 +44,10 @@ jobs:
           RELEASE: true
         run: ./gradlew :fabric:build
 
-#      - name: Build Forge
-#        env:
-#          RELEASE: true
-#        run: ./gradlew :forge:build
-
-      - name: Build NeoForge
+      - name: Build Forge
         env:
           RELEASE: true
-        run: ./gradlew :neoforge:build
+        run: ./gradlew :forge:build
 
       - name: Publish
         env:
@@ -84,24 +79,13 @@ jobs:
           asset_name: emi-${{ steps.composite_version.outputs.composite_version }}+fabric.jar
           asset_content_type: application/java-archive
 
-      - name: Upload NeoForge Release Asset
-        id: upload_neoforge_release_asset
+      - name: Upload Forge Release Asset
+        id: upload_forge_release_asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./neoforge/build/libs/emi-${{ steps.composite_version.outputs.composite_version }}+neoforge.jar
-          asset_name: emi-${{ steps.composite_version.outputs.composite_version }}+neoforge.jar
+          asset_path: ./forge/build/libs/emi-${{ steps.composite_version.outputs.composite_version }}+forge.jar
+          asset_name: emi-${{ steps.composite_version.outputs.composite_version }}+forge.jar
           asset_content_type: application/java-archive
-
-#      - name: Upload Forge Release Asset
-#        id: upload_forge_release_asset
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./forge/build/libs/emi-${{ steps.composite_version.outputs.composite_version }}+forge.jar
-#          asset_name: emi-${{ steps.composite_version.outputs.composite_version }}+forge.jar
-#          asset_content_type: application/java-archive

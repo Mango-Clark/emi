@@ -51,8 +51,9 @@ public class ConfigEnumScreen<T> extends Screen {
 	public void render(DrawContext raw, int mouseX, int mouseY, float delta) {
 		EmiDrawContext context = EmiDrawContext.wrap(raw);
 		list.setScrollAmount(list.getScrollAmount());
-		super.render(context.raw(), mouseX, mouseY, delta);
+		this.renderBackgroundTexture(context.raw());
 		list.render(context.raw(), mouseX, mouseY, delta);
+		super.render(context.raw(), mouseX, mouseY, delta);
 		ListWidget.Entry entry = list.getHoveredEntry();
 		if (entry instanceof SelectionWidget<?> widget) {
 			if (widget.button.isHovered()) {

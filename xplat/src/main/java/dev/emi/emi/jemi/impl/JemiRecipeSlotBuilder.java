@@ -19,8 +19,8 @@ import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-import net.minecraft.component.ComponentChanges;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.nbt.NbtCompound;
 
 public class JemiRecipeSlotBuilder implements IRecipeSlotBuilder {
 	public final JemiIngredientAcceptor acceptor;
@@ -58,14 +58,20 @@ public class JemiRecipeSlotBuilder implements IRecipeSlotBuilder {
 	}
 
 	@Override
+	public IRecipeSlotBuilder addFluidStack(Fluid fluid) {
+		acceptor.addFluidStack(fluid);
+		return this;
+	}
+
+	@Override
 	public IRecipeSlotBuilder addFluidStack(Fluid fluid, long amount) {
 		acceptor.addFluidStack(fluid, amount);
 		return this;
 	}
 
 	@Override
-	public IRecipeSlotBuilder addFluidStack(Fluid fluid, long amount, ComponentChanges componentChanges) {
-		acceptor.addFluidStack(fluid, amount, componentChanges);
+	public IRecipeSlotBuilder addFluidStack(Fluid fluid, long amount, NbtCompound tag) {
+		acceptor.addFluidStack(fluid, amount, tag);
 		return this;
 	}
 
@@ -128,12 +134,6 @@ public class JemiRecipeSlotBuilder implements IRecipeSlotBuilder {
 	}
 
 	@Override
-	public IRecipeSlotBuilder addFluidStack(Fluid fluid) {
-		acceptor.addFluidStack(fluid);
-		return this;
-	}
-
-	@Override
 	public IRecipeSlotBuilder setPosition(int xPos, int yPos) {
 		this.x = xPos;
 		this.y = yPos;
@@ -152,12 +152,13 @@ public class JemiRecipeSlotBuilder implements IRecipeSlotBuilder {
 
 	@Override
 	public IRecipeSlotBuilder setStandardSlotBackground() {
-		this.large = true;
+		large = false;
 		return this;
 	}
 
 	@Override
 	public IRecipeSlotBuilder setOutputSlotBackground() {
+		large = true;
 		return this;
 	}
 }

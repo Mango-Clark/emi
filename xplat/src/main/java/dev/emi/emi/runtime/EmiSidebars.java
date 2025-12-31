@@ -30,6 +30,8 @@ public class EmiSidebars {
 			case INDEX -> EmiConfig.editMode ? EmiStackList.stacks : EmiStackList.filteredStacks;
 			case CRAFTABLES -> craftables;
 			case FAVORITES -> EmiFavorites.favoriteSidebar;
+			case BOOKMARKS -> EmiBookmarks.bookmarks;
+			case TREE_BOOKMARKS -> EmiTreeBookmarks.bookmarks;
 			case LOOKUP_HISTORY -> lookupHistory;
 			case CRAFT_HISTORY -> craftHistory;
 			case EMPTY -> List.of();
@@ -107,7 +109,8 @@ public class EmiSidebars {
 			for (JsonElement el : JsonHelper.getArray(json, "craft_history")) {
 				if (JsonHelper.isString(el)) {
 					String s = el.getAsString();
-					if (Identifier.tryParse(s) instanceof Identifier id) {
+					if (Identifier.isValid(s)) {
+						Identifier id = EmiPort.id(s);
 						EmiRecipe recipe = EmiApi.getRecipeManager().getRecipe(id);
 						if (recipe != null) {
 							craftHistory.add(new EmiFavorite.Craftable(recipe));

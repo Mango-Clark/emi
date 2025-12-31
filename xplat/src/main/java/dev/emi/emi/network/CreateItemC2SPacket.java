@@ -4,7 +4,6 @@ import dev.emi.emi.runtime.EmiLog;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.util.Identifier;
 
 public class CreateItemC2SPacket implements EmiPacket {
@@ -16,14 +15,14 @@ public class CreateItemC2SPacket implements EmiPacket {
 		this.stack = stack;
 	}
 
-	public CreateItemC2SPacket(RegistryByteBuf buf) {
-		this(buf.readByte(), ItemStack.OPTIONAL_PACKET_CODEC.decode(buf));
+	public CreateItemC2SPacket(PacketByteBuf buf) {
+		this(buf.readByte(), buf.readItemStack());
 	}
 
 	@Override
-	public void write(RegistryByteBuf buf) {
+	public void write(PacketByteBuf buf) {
 		buf.writeByte(mode);
-		ItemStack.OPTIONAL_PACKET_CODEC.encode(buf, stack);
+		buf.writeItemStack(stack);
 	}
 
 	@Override
@@ -31,11 +30,11 @@ public class CreateItemC2SPacket implements EmiPacket {
 		if ((player.hasPermissionLevel(2) || player.isCreative()) && player.currentScreenHandler != null) {
 			if (stack.isEmpty()) {
 				if (mode == 1 && !player.currentScreenHandler.getCursorStack().isEmpty()) {
-					EmiLog.info(player.getName() + " deleted " + player.currentScreenHandler.getCursorStack());
+					EmiLog.info(player.getEntityName() + " deleted " + player.currentScreenHandler.getCursorStack());
 					player.currentScreenHandler.setCursorStack(stack);
 				}
 			} else {
-				EmiLog.info(player.getName() + " cheated in " + stack);
+				EmiLog.info(player.getEntityName() + " cheated in " + stack);
 				if (mode == 0) {
 					player.getInventory().offerOrDrop(stack);
 				} else if (mode == 1) {
@@ -46,7 +45,7 @@ public class CreateItemC2SPacket implements EmiPacket {
 	}
 
 	@Override
-	public Id<CreateItemC2SPacket> getId() {
+	public Identifier getId() {
 		return EmiNetwork.CREATE_ITEM;
 	}
 }

@@ -69,7 +69,6 @@ import net.minecraft.client.util.math.Rect2i;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.item.Item;
 import net.minecraft.recipe.CraftingRecipe;
-import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.SpecialCraftingRecipe;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.text.MutableText;
@@ -91,6 +90,19 @@ public class JemiPlugin implements IModPlugin, EmiPlugin {
 	}
 
 	public void registerItemSubtypes(ISubtypeRegistration registration) {
+		try {
+			if (((SubtypeRegistration) registration).getInterpreters() != null) {
+				hasSubtype = (type, ingredient) -> {
+					@SuppressWarnings("unchecked")
+					IIngredientTypeWithSubtypes<Object, Object> castedType = (IIngredientTypeWithSubtypes<Object, Object>) type;
+					SubtypeInterpreters interpreters = ((SubtypeRegistration) registration).getInterpreters();
+					return interpreters.contains(castedType, ingredient);
+				};
+			}
+			return;
+		} catch (Throwable t) {
+			t.printStackTrace();
+		}
 		hasSubtype = (type, ingredient) -> {
 			@SuppressWarnings("unchecked")
 			IIngredientTypeWithSubtypes<Object, Object> castedType = (IIngredientTypeWithSubtypes<Object, Object>) type;
@@ -224,7 +236,7 @@ public class JemiPlugin implements IModPlugin, EmiPlugin {
 					if (type == RecipeTypes.INFORMATION) {
 						addInfoRecipes(registry, (IRecipeCategory<IJeiIngredientInfoRecipe>) c);
 					} else if (type == RecipeTypes.CRAFTING) {
-						addCraftingRecipes(registry, (IRecipeCategory<RecipeEntry<CraftingRecipe>>) c);
+						addCraftingRecipes(registry, (IRecipeCategory<CraftingRecipe>) c);
 					}
 					continue;
 				}
@@ -290,15 +302,15 @@ public class JemiPlugin implements IModPlugin, EmiPlugin {
 		}
 	}
 
-	private void addCraftingRecipes(EmiRegistry registry, IRecipeCategory<RecipeEntry<CraftingRecipe>> category) {
+	private void addCraftingRecipes(EmiRegistry registry, IRecipeCategory<CraftingRecipe> category) {
 		Set<Identifier> replaced = Sets.newHashSet();
 		Set<EmiRecipe> replacements = Sets.newHashSet();
-		List<RecipeEntry<CraftingRecipe>> recipes = Stream.concat(
+		List<CraftingRecipe> recipes = Stream.concat(
 			runtime.getRecipeManager().createRecipeLookup(category.getRecipeType()).includeHidden().get(),
 			registry.getRecipeManager().listAllOfType(net.minecraft.recipe.RecipeType.CRAFTING).stream()
-				.filter(r -> r.value() instanceof SpecialCraftingRecipe)
+				.filter(r -> r instanceof SpecialCraftingRecipe)
 		).distinct().toList();
-		for (RecipeEntry<CraftingRecipe> recipe : recipes) {
+		for (CraftingRecipe recipe : recipes) {
 			try {
 				if (category.isHandled(recipe)) {
 					JemiRecipeLayoutBuilder builder = new JemiRecipeLayoutBuilder();
@@ -371,7 +383,7 @@ public class JemiPlugin implements IModPlugin, EmiPlugin {
 			}
 			for (Fluid fluid : EmiPort.getFluidRegistry()) {
 				IIngredientTypeWithSubtypes<Object, Object> type = (IIngredientTypeWithSubtypes<Object, Object>) JemiUtil.getFluidType();
-				if (hasSubtype.test(type, JemiUtil.getFluidHelper().create(fluid.getRegistryEntry(), 1000))) {
+				if (hasSubtype.test(type, JemiUtil.getFluidHelper().create(fluid, 1000))) {
 					registry.setDefaultComparison(fluid, Comparison.compareData(stack -> {
 						ITypedIngredient<?> typed = JemiUtil.getTyped(stack).orElse(null);
 						if (typed != null) {

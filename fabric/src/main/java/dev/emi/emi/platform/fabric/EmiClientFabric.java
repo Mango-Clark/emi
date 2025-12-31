@@ -1,11 +1,8 @@
 package dev.emi.emi.platform.fabric;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-
-import com.google.common.collect.Lists;
 
 import dev.emi.emi.data.EmiData;
 import dev.emi.emi.network.CommandS2CPacket;
@@ -17,18 +14,11 @@ import dev.emi.emi.platform.EmiClient;
 import dev.emi.emi.registry.EmiTags;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelModifier;
-import net.fabricmc.fabric.api.client.model.loading.v1.PreparableModelLoadingPlugin;
+import net.fabricmc.fabric.api.client.model.ModelLoadingRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketDecoder;
-import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
@@ -60,20 +50,14 @@ public class EmiClientFabric implements ClientModInitializer {
 			});
 		});
 
-		PreparableModelLoadingPlugin.<List<Identifier>>register((manager, executor) -> {
-			return CompletableFuture.supplyAsync(() -> {
-				List<Identifier> ids = Lists.newArrayList();
-				EmiTags.registerTagModels(manager, id -> ids.add(id.id()), "");
-				return ids;
-			}, executor);
-		}, (ids, context) -> {
-			context.addModels(ids);
+		ModelLoadingRegistry.INSTANCE.registerModelProvider((manager, consumer) -> {
+			EmiTags.registerTagModels(manager, consumer);
 		});
 
 		EmiNetwork.initClient(packet -> {
-			if (ClientPlayNetworking.canSend(packet.getId())) {
-				ClientPlayNetworking.send(packet);
-			}
+			PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+			packet.write(buf);
+			ClientPlayNetworking.send(packet.getId(), buf);
 		});
 
 		registerPacketReader(EmiNetwork.PING, PingS2CPacket::new);
@@ -81,10 +65,11 @@ public class EmiClientFabric implements ClientModInitializer {
 		registerPacketReader(EmiNetwork.CHESS, EmiChessPacket.S2C::new);
 	}
 
-	private <T extends EmiPacket> void registerPacketReader(CustomPayload.Id<T> id, PacketDecoder<RegistryByteBuf, T> decode) {
-		ClientPlayNetworking.registerGlobalReceiver(id, (payload, context) -> {
-			context.client().execute(() -> {
-				payload.apply(context.client().player);
+	private void registerPacketReader(Identifier id, Function<PacketByteBuf, EmiPacket> create) {
+		ClientPlayNetworking.registerGlobalReceiver(id, (client, handler, buf, sender) -> {
+			EmiPacket packet = create.apply(buf);
+			client.execute(() -> {
+				packet.apply(client.player);
 			});
 		});
 	}

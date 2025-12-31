@@ -13,7 +13,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import net.minecraft.client.render.BuiltBuffer;
 import org.joml.Matrix4f;
 
 import com.google.common.collect.Lists;
@@ -39,7 +38,6 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.BakedQuad;
 import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.item.ItemStack;
 
 /**
@@ -47,19 +45,41 @@ import net.minecraft.item.ItemStack;
  */
 public class StackBatcher {
 	private static MethodHandle sodiumSpriteHandle;
+	private static boolean isIncompatibleSodiumLoaded;
 
 	static {
 		try {
 			Class<?> clazz = null;
+			// TODO this is a 1.18 -> 1.19 refactor for Sodium
 			try {
-				// Try Sodium 0.5 name
-				clazz = Class.forName("me.jellysquid.mods.sodium.client.render.texture.SpriteUtil");
+				clazz = Class.forName("net.caffeinemc.sodium.render.texture.SpriteUtil");
 			} catch (Throwable t) {
+			}
+			if (clazz == null) {
+				clazz = Class.forName("me.jellysquid.mods.sodium.client.render.texture.SpriteUtil");
 			}
 			sodiumSpriteHandle = MethodHandles.lookup()
 				.findStatic(clazz, "markSpriteActive", MethodType.methodType(void.class, Sprite.class));
 			if (sodiumSpriteHandle != null) {
 				EmiLog.info("Discovered Sodium");
+			}
+
+			if(EmiAgnos.isModLoaded("sodium") || EmiAgnos.isModLoaded("rubidium")) {
+				// Check for the modern VertexBufferWriter API. If so, we are likely on Sodium 0.5+ (or a derivative),
+				// which can generally handle a custom VertexConsumer properly.
+				try {
+					Class.forName("net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter");
+				} catch(Throwable t) {
+					// Check for the legacy VBW API which *cannot* handle this
+					try {
+						Class.forName("me.jellysquid.mods.sodium.client.render.vertex.VertexBufferWriter");
+						// Success means the class exists
+						isIncompatibleSodiumLoaded = true;
+						EmiLog.info("Batching stack renderer disabled for compatibility with legacy Sodium");
+					} catch(Throwable t2) {
+						// Old enough Sodiums shouldn't have an issue
+					}
+				}
 			}
 		} catch (Throwable e) {
 		}
@@ -85,11 +105,11 @@ public class StackBatcher {
 	public static final List<RenderLayer> EXTRA_RENDER_LAYERS = Lists.newArrayList();
 
 	public static boolean isEnabled() {
-		return EmiConfig.useBatchedRenderer;
+		return EmiConfig.useBatchedRenderer && !isIncompatibleSodiumLoaded;
 	}
 
 	public StackBatcher() {
-		Map<RenderLayer, BufferAllocator> buffers = new HashMap<>();
+		Map<RenderLayer, BufferBuilder> buffers = new HashMap<>();
 		assign(buffers, RenderLayer.getSolid());
 		assign(buffers, RenderLayer.getCutout());
 		assign(buffers, RenderLayer.getTranslucent());
@@ -97,17 +117,17 @@ public class StackBatcher {
 		assign(buffers, TexturedRenderLayers.getEntityCutout());
 		assign(buffers, TexturedRenderLayers.getEntityTranslucentCull());
 		assign(buffers, RenderLayer.getGlint());
-		//assign(buffers, RenderLayer.getDirectGlint());
+		assign(buffers, RenderLayer.getDirectGlint());
 		assign(buffers, RenderLayer.getEntityGlint());
 		for (RenderLayer layer : EXTRA_RENDER_LAYERS) {
 			assign(buffers, layer);
 		}
-		imm = new BatcherVertexConsumerProvider(new BufferAllocator(256), buffers);
+		imm = new BatcherVertexConsumerProvider(new BufferBuilder(256), buffers);
 		unlitFacade = new UnlitFacade(imm);
 	}
 
-	private void assign(Map<RenderLayer, BufferAllocator> buffers, RenderLayer layer) {
-		buffers.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
+	private void assign(Map<RenderLayer, BufferBuilder> buffers, RenderLayer layer) {
+		buffers.put(layer, new BufferBuilder(layer.getExpectedBufferSize()));
 	}
 
 	public boolean isPopulated() {
@@ -150,7 +170,7 @@ public class StackBatcher {
 		if (stack instanceof Batchable b && !b.isUnbatchable() && isEnabled() && (flags & EmiIngredient.RENDER_ICON) != 0) {
 			if (!populated) {
 				try {
-					b.renderForBatch(b.isSideLit() ? imm : unlitFacade, draw, x-this.x, y + this.y, z, delta);
+					b.renderForBatch(b.isSideLit() ? imm : unlitFacade, draw, x-this.x, -y-this.y, z, delta);
 					if (sodiumSpriteHandle != null && !stack.isEmpty()) {
 						ItemStack is = stack.getEmiStacks().get(0).getItemStack();
 						MinecraftClient client = MinecraftClient.getInstance();
@@ -196,7 +216,9 @@ public class StackBatcher {
 		RenderSystem.enableDepthTest();
 		DiffuseLighting.enableGuiDepthLighting();
 		Matrix4f mat = new Matrix4f(RenderSystem.getModelViewMatrix());
-		mat.mul(new Matrix4f().translation(x, y, 0));
+		mat.mul(new Matrix4f().scale(1, -1, 1));
+		// Flipped Y creates an offset
+		mat.mul(new Matrix4f().translation(x, -y - 16, 0));
 		for (Map.Entry<RenderLayer, VertexBuffer> en : buffers.entrySet()) {
 			en.getKey().startDrawing();
 			EmiPort.setShader(en.getValue(), mat);
@@ -209,21 +231,18 @@ public class StackBatcher {
 		imm.drawCurrentLayer();
 		buffers.values().forEach(VertexBuffer::close);
 		buffers.clear();
-		for (Map.Entry<RenderLayer, BufferBuilder> entry : imm.getPendingLayerBuffers().entrySet()) {
-			bake(entry.getKey(), entry.getValue());
+		for (RenderLayer layer : imm.getLayerBuffers().keySet()) {
+			bake(layer);
 		}
-		imm.getPendingLayerBuffers().clear();
 	}
 
-	public void bake(RenderLayer layer, BufferBuilder bldr) {
-		BuiltBuffer builtBuffer = bldr.endNullable();
-		if (builtBuffer == null) {
-			return;
-		}
+	public void bake(RenderLayer layer) {
+		BufferBuilder bldr = imm.getBufferInternal(layer);
+		if (!imm.getActiveConsumers().remove(bldr)) return;
 		VertexBuffer vb = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
-		vb.bind();
-		vb.upload(builtBuffer);
+		EmiPort.upload(vb, bldr);
 		buffers.put(layer, vb);
+		bldr.reset();
 	}
 
 	// Apparently BufferBuilder leaks memory in vanilla. Go figure
@@ -265,81 +284,72 @@ public class StackBatcher {
 	}
 
 	/*
-	 * This class is mostly a copy of a 1.21 implementation of VertexConsumerProvider.Immediate
+	 * This class is mostly a copy of a 1.18.2 implementation of VertexConsumerProvider.Immediate
 	 * The reimplementation allows compatibility with shader mods, as well as less hackery.
 	 */
 	private static class BatcherVertexConsumerProvider implements VertexConsumerProvider {
-		protected final BufferAllocator fallbackBuffer;
-		protected final Map<RenderLayer, BufferAllocator> layerBuffers;
-		protected final Map<RenderLayer, BufferBuilder> pending = new HashMap<>();
-		protected RenderLayer currentLayer = null;
+		protected final BufferBuilder fallbackBuffer;
+		protected final Map<RenderLayer, BufferBuilder> layerBuffers;
+		protected Optional<RenderLayer> currentLayer = Optional.empty();
+		protected final Set<BufferBuilder> activeConsumers = Sets.newHashSet();
 
-		protected BatcherVertexConsumerProvider(BufferAllocator fallbackBuffer, Map<RenderLayer, BufferAllocator> layerBuffers) {
+		protected BatcherVertexConsumerProvider(BufferBuilder fallbackBuffer, Map<RenderLayer, BufferBuilder> layerBuffers) {
 			this.fallbackBuffer = fallbackBuffer;
 			this.layerBuffers = layerBuffers;
 		}
 
 		@Override
 		public VertexConsumer getBuffer(RenderLayer renderLayer) {
-			BufferBuilder bufferBuilder = this.pending.get(renderLayer);
-
-			if (bufferBuilder == null) {
-				BufferAllocator allocator = this.layerBuffers.get(renderLayer);
-				if (allocator != null) {
-					// Dedicated layer buffer, we can make a new buffer builder safely
-					bufferBuilder = new BufferBuilder(allocator, renderLayer.getDrawMode(), renderLayer.getVertexFormat());
-				} else {
-					// Not dedicated, flush previous layer first
-					if (this.currentLayer != null) {
-						this.draw(this.currentLayer);
-					}
-					bufferBuilder = new BufferBuilder(this.fallbackBuffer, renderLayer.getDrawMode(), renderLayer.getVertexFormat());
-					this.currentLayer = renderLayer;
+			Optional<RenderLayer> optional = renderLayer.asOptional();
+			BufferBuilder bufferBuilder = this.getBufferInternal(renderLayer);
+			if (!Objects.equals(this.currentLayer, optional)) {
+				RenderLayer renderLayer2;
+				if (this.currentLayer.isPresent() && !this.layerBuffers.containsKey(renderLayer2 = this.currentLayer.get())) {
+					this.draw(renderLayer2);
 				}
-
-				this.pending.put(renderLayer, bufferBuilder);
+				if (this.activeConsumers.add(bufferBuilder)) {
+					bufferBuilder.begin(renderLayer.getDrawMode(), renderLayer.getVertexFormat());
+				}
+				this.currentLayer = optional;
 			}
-
 			return bufferBuilder;
 		}
 
-		private BufferAllocator getBufferInternal(RenderLayer layer) {
+		private BufferBuilder getBufferInternal(RenderLayer layer) {
 			return this.layerBuffers.getOrDefault(layer, this.fallbackBuffer);
 		}
 
 		public void drawCurrentLayer() {
-			if (this.currentLayer != null) {
-				RenderLayer renderLayer = this.currentLayer;
+			if (this.currentLayer.isPresent()) {
+				RenderLayer renderLayer = this.currentLayer.get();
 				if (!this.layerBuffers.containsKey(renderLayer)) {
 					this.draw(renderLayer);
 				}
-				this.currentLayer = null;
+				this.currentLayer = Optional.empty();
 			}
 		}
 
 		public void draw(RenderLayer layer) {
-			BufferAllocator bufferAllocator = this.getBufferInternal(layer);
-			boolean isSameAsCurrentLayer = Objects.equals(this.currentLayer, layer);
-			if (!isSameAsCurrentLayer && bufferAllocator == this.fallbackBuffer) {
+			BufferBuilder bufferBuilder = this.getBufferInternal(layer);
+			boolean bl = Objects.equals(this.currentLayer, layer.asOptional());
+			if (!bl && bufferBuilder == this.fallbackBuffer) {
 				return;
 			}
-			BufferBuilder builder = this.pending.remove(layer);
-			if (builder == null) {
+			if (!this.activeConsumers.remove(bufferBuilder)) {
 				return;
 			}
-			BuiltBuffer buffer = builder.endNullable();
-			if (buffer != null) {
-				// TODO: do we actually need to sort quads still?
-				buffer.sortQuads(bufferAllocator, VertexSorter.BY_Z);
-				layer.draw(buffer);
-			}
-			if (isSameAsCurrentLayer) {
-				this.currentLayer = null;
+			layer.draw(bufferBuilder, VertexSorter.BY_Z);
+			if (bl) {
+				this.currentLayer = Optional.empty();
 			}
 		}
-
-		public Map<RenderLayer, BufferBuilder> getPendingLayerBuffers() {
-			return pending;
+		
+		public Map<RenderLayer, BufferBuilder> getLayerBuffers() {
+			return layerBuffers;
+		}
+		
+		public Set<BufferBuilder> getActiveConsumers() {
+			return activeConsumers;
 		}
 	}
 
@@ -365,16 +375,21 @@ public class StackBatcher {
 
 			@Override
 			public VertexConsumer normal(float x, float y, float z) {
-				delegate.normal(0, -1, 0); // this is the change
+				delegate.normal(0, 1, 0); // this is the change
 				return this;
 			}
 			
 			// all other methods are direct delegation
 
 			@Override
-			public VertexConsumer vertex(float x, float y, float z) {
+			public VertexConsumer vertex(double x, double y, double z) {
 				delegate.vertex(x, y, z);
 				return this;
+			}
+
+			@Override
+			public void unfixColor() {
+				delegate.unfixColor();
 			}
 
 			@Override
@@ -390,9 +405,19 @@ public class StackBatcher {
 			}
 
 			@Override
+			public void next() {
+				delegate.next();
+			}
+
+			@Override
 			public VertexConsumer light(int u, int v) {
 				delegate.light(u, v);
 				return this;
+			}
+
+			@Override
+			public void fixedColor(int r, int g, int b, int a) {
+				delegate.fixedColor(r, g, b, a);
 			}
 
 			@Override

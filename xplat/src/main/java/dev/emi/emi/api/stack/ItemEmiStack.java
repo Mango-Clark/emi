@@ -2,12 +2,8 @@ package dev.emi.emi.api.stack;
 
 import java.util.List;
 
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.ComponentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
-import net.minecraft.item.tooltip.TooltipType;
-
 import org.jetbrains.annotations.ApiStatus;
 
 import com.google.common.collect.Lists;
@@ -23,6 +19,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.tooltip.OrderedTextTooltipComponent;
 import net.minecraft.client.gui.tooltip.TooltipComponent;
+import net.minecraft.client.item.TooltipContext;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -31,16 +28,16 @@ import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import org.jetbrains.annotations.Nullable;
 
 @ApiStatus.Internal
 public class ItemEmiStack extends EmiStack implements Batchable {
 	private static final MinecraftClient client = MinecraftClient.getInstance();
 
 	private final Item item;
-	private final ComponentChanges componentChanges;
+	private final NbtCompound nbt;
 
 	private boolean unbatchable;
 
@@ -49,23 +46,27 @@ public class ItemEmiStack extends EmiStack implements Batchable {
 	}
 
 	public ItemEmiStack(ItemStack stack, long amount) {
-		this(stack.getItem(), stack.getComponentChanges(), amount);
+		this(stack.getItem(), stack.getNbt(), amount);
 	}
 
-	public ItemEmiStack(Item item, ComponentChanges components, long amount) {
+	public ItemEmiStack(Item item, NbtCompound nbt, long amount) {
 		this.item = item;
-		this.componentChanges = components;
+		this.nbt = nbt != null ? nbt.copy() : null;
 		this.amount = amount;
 	}
 
 	@Override
 	public ItemStack getItemStack() {
-		return new ItemStack(EmiPort.getItemRegistry().getEntry(this.item), (int) this.amount, componentChanges);
+		ItemStack stack = new ItemStack(this.item, (int) this.amount);
+		if (this.nbt != null) {
+			stack.setNbt(this.nbt);
+		}
+		return stack;
 	}
 
 	@Override
 	public EmiStack copy() {
-		EmiStack e = new ItemEmiStack(item, componentChanges, amount);
+		EmiStack e = new ItemEmiStack(item, nbt, amount);
 		e.setChance(chance);
 		e.setRemainder(getRemainder().copy());
 		e.comparison = comparison;
@@ -78,20 +79,8 @@ public class ItemEmiStack extends EmiStack implements Batchable {
 	}
 
 	@Override
-	public ComponentChanges getComponentChanges() {
-		return this.componentChanges;
-	}
-
-	@Override
-	public <T> @Nullable T get(ComponentType<? extends T> type) {
-		// Check the changes first
-		var changedOpt = this.componentChanges.get(type);
-		//noinspection OptionalAssignedToNull
-		if(changedOpt != null) {
-			return changedOpt.orElse(null);
-		}
-		// Check the item's default components
-		return this.item.getComponents().get(type);
+	public NbtCompound getNbt() {
+		return nbt;
 	}
 
 	@Override
@@ -152,7 +141,7 @@ public class ItemEmiStack extends EmiStack implements Batchable {
 		try {
 			context.matrices().translate(x, y, 100.0f + z + (model.hasDepth() ? 50 : 0));
 			context.matrices().translate(8.0, 8.0, 0.0);
-			context.matrices().scale(16.0f, -16.0f, 16.0f);
+			context.matrices().scale(16.0f, 16.0f, 16.0f);
 			ir.renderItem(stack, ModelTransformationMode.GUI, false, context.matrices(), vcp, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, model);
 		} finally {
 			context.pop();
@@ -161,12 +150,7 @@ public class ItemEmiStack extends EmiStack implements Batchable {
 
 	@Override
 	public List<Text> getTooltipText() {
-		if (client.isOnThread()) {
-			return getItemStack().getTooltip(Item.TooltipContext.create(client.world), client.player, TooltipType.BASIC);
-		} else {
-			// Don't provide world or entity as context, as they are not thread safe
-			return getItemStack().getTooltip(Item.TooltipContext.create(client.world.getRegistryManager()), null, TooltipType.BASIC);
-		}
+		return getItemStack().getTooltip(client.player, TooltipContext.BASIC);
 	}
 
 	@Override

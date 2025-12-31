@@ -21,15 +21,12 @@ public class ConfigJumpButton extends SizedButtonWidget {
 	}
 
 	@Override
-	public void renderWidget(DrawContext raw, int mouseX, int mouseY, float delta) {
+	public void renderButton(DrawContext raw, int mouseX, int mouseY, float delta) {
 		EmiDrawContext context = EmiDrawContext.wrap(raw);
 		if (this.isMouseOver(mouseX, mouseY)) {
 			context.setColor(0.5f, 0.6f, 1f);
 		}
-		context.push();
-		context.matrices().translate(0, 0, 100);
-		super.renderWidget(raw, mouseX, mouseY, delta);
-		context.pop();
+		super.renderButton(raw, mouseX, mouseY, delta);
 		context.resetColor();
 	}
 }

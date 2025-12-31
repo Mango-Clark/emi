@@ -144,6 +144,14 @@ public class EmiConfig {
 	@ConfigValue("ui.recipe-tree-button-visibility")
 	public static ButtonVisibility recipeTreeButtonVisibility = ButtonVisibility.AUTO;
 
+	@Comment("Grid size for recipe tree roots")
+	@ConfigValue("ui.recipe-tree-root-grid-size")
+	public static IntGroup recipeTreeRootGridSize = new IntGroup(
+			"emi.recipe_tree.root_grid.size.",
+			List.of("columns", "rows"),
+			IntList.of(8, 2)
+	);
+
 	@ConfigGroup("ui.recipe-screen")
 	@Comment("The maximum height the recipe screen will grow to be if space is available in pixels.")
 	@ConfigValue("ui.maximum-recipe-screen-height")
@@ -167,7 +175,7 @@ public class EmiConfig {
 	@ConfigValue("ui.workstation-location")
 	public static SidebarSide workstationLocation = SidebarSide.BOTTOM;
 
-	@ConfigGroupEnd()
+	@ConfigGroupEnd
 	@Comment("Display cost per batch when hovering a recipe output")
 	@ConfigValue("ui.show-cost-per-batch")
 	public static boolean showCostPerBatch = true;
@@ -241,7 +249,8 @@ public class EmiConfig {
 	@ConfigValue("ui.right-sidebar-pages")
 	public static SidebarPages rightSidebarPages = new SidebarPages(List.of(
 		new SidebarPages.SidebarPage(SidebarType.INDEX),
-		new SidebarPages.SidebarPage(SidebarType.CRAFTABLES)
+		new SidebarPages.SidebarPage(SidebarType.CRAFTABLES),
+		new SidebarPages.SidebarPage(SidebarType.TREE_BOOKMARKS)
 	), SidebarSettings.RIGHT);
 
 	@Comment("The subpanels in the right sidebar")
@@ -362,6 +371,19 @@ public class EmiConfig {
 	@Comment("Clears the search bar.")
 	@ConfigValue("binds.clear-search")
 	public static EmiBind clearSearch = new EmiBind("key.emi.clear_search", InputUtil.UNKNOWN_KEY.getCode());
+
+	@Comment("Add current search as a Bookmark")
+	@ConfigValue("binds.add-bookmark")
+	public static EmiBind addBookmark = new EmiBind("key.emi.add_bookmark", EmiInput.CONTROL_MASK, GLFW.GLFW_KEY_ENTER);
+
+	@Comment("Add current recipe tree as a Tree Bookmark")
+	@ConfigValue("binds.add-tree-bookmark")
+	public static EmiBind addTreeBookmark = new EmiBind("key.emi.add_tree_bookmark", EmiInput.CONTROL_MASK, GLFW.GLFW_KEY_ENTER);
+
+	@Comment("Rename an existing Tree Bookmark in the sidebar")
+	@ConfigValue("binds.rename-tree-bookmark")
+	public static EmiBind renameTreeBookmark = new EmiBind("key.emi.rename_tree_bookmark",
+		new EmiBind.ModifiedKey(InputUtil.Type.MOUSE.createFromCode(1), EmiInput.SHIFT_MASK));
 
 	@Comment("Display the recipes for creating a stack.")
 	@ConfigValue("binds.view-recipes")

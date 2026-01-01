@@ -19,6 +19,7 @@ import dev.emi.emi.runtime.EmiProfiler;
 import dev.emi.emi.runtime.EmiReloadLog;
 import dev.emi.emi.runtime.EmiReloadManager;
 import dev.emi.emi.runtime.EmiSidebars;
+import dev.emi.emi.runtime.EmiTreeBookmarks;
 import net.minecraft.command.argument.ItemStackArgument;
 import net.minecraft.component.ComponentChanges;
 import org.jetbrains.annotations.Nullable;

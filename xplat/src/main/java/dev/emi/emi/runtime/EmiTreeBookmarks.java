@@ -530,8 +530,11 @@ public class EmiTreeBookmarks {
 
 		public void apply(Map<EmiIngredient, EmiRecipe> map) {
 			EmiRecipe recipe = null;
-			if (recipeId != null && Identifier.isValid(recipeId)) {
-				recipe = EmiApi.getRecipeManager().getRecipe(EmiPort.id(recipeId));
+			if (recipeId != null) {
+				Identifier id = Identifier.tryParse(recipeId);
+				if (id != null) {
+					recipe = EmiApi.getRecipeManager().getRecipe(id);
+				}
 			} else if (!stack.isEmpty()) {
 				recipe = new EmiResolutionRecipe(ingredient, stack);
 			} else if (!cleared) {
@@ -680,10 +683,14 @@ public class EmiTreeBookmarks {
 		}
 
 		private EmiRecipe recipeFromId() {
-			if (recipeId == null || !Identifier.isValid(recipeId)) {
+			if (recipeId == null) {
 				return null;
 			}
-			return EmiApi.getRecipeManager().getRecipe(EmiPort.id(recipeId));
+			Identifier id = Identifier.tryParse(recipeId);
+			if (id == null) {
+				return null;
+			}
+			return EmiApi.getRecipeManager().getRecipe(id);
 		}
 
 		public void applyResolutions(Map<EmiIngredient, EmiRecipe> map) {

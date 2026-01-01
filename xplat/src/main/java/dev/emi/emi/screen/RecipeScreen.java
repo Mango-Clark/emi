@@ -530,7 +530,7 @@ public class RecipeScreen extends Screen {
 				setPage(tabPage, tab, page - sa);
 			}
 		}
-		return super.mouseScrolled(mouseX, mouseY, horizontal, amount);
+		return super.mouseScrolled(mouseX, mouseY, 0.0, amount);
 	}
 
 	@Override
